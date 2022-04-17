@@ -53,7 +53,7 @@ class GraphTransformerNet(nn.Module):
         self.MLP_layer = MLPReadout(out_dim, 1)   # 1 out dim since regression problem        
         
     def forward(self, g, h, e, h_lap_pos_enc=None, h_wl_pos_enc=None):
-
+        # 参照论文， 首先将 点和边进行线性映射 到d维，将位置编码也映射到同样的维度，并与node特征相加
         # input embedding
         h = self.embedding_h(h)
         h = self.in_feat_dropout(h)
@@ -65,9 +65,10 @@ class GraphTransformerNet(nn.Module):
             h = h + h_wl_pos_enc
         if not self.edge_feat: # edge feature set to 1
             e = torch.ones(e.size(0),1).to(self.device)
+            # 比如这里就是边特征的映射
         e = self.embedding_e(e)   
         
-        # convnets
+        # convnets  参照论文 ，进入 transformer layers  进入数据分别是，图，映射后的点特征，映射后的边特征
         for conv in self.layers:
             h, e = conv(g, h, e)
         g.ndata['h'] = h
