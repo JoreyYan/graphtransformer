@@ -74,18 +74,23 @@ class MultiHeadAttentionLayer(nn.Module):
     
     def propagate_attention(self, g):
         # Compute attention score
+        # q k 相乘，得到score
         g.apply_edges(src_dot_dst('K_h', 'Q_h', 'score')) #, edges)
         
         # scaling
+        # 将结果scaling，防止过大，
         g.apply_edges(scaling('score', np.sqrt(self.out_dim)))
         
         # Use available edge features to modify the scores
+        #边的特征与点的结果相乘
         g.apply_edges(imp_exp_attn('score', 'proj_e'))
         
         # Copy edge features as e_out to be passed to FFN_e
+        # 复制出来一份，用于后面更新边
         g.apply_edges(out_edge_features('score'))
         
         # softmax
+        # 对点这边的特征 进行softmax
         g.apply_edges(exp('score'))
 
         # Send weighted values to target nodes
@@ -94,7 +99,7 @@ class MultiHeadAttentionLayer(nn.Module):
         g.send_and_recv(eids, fn.copy_edge('score', 'score'), fn.sum('score', 'z'))
     
     def forward(self, g, h, e):
-        
+        # 分别求 num_heads 的 q k v 向量
         Q_h = self.Q(h)
         K_h = self.K(h)
         V_h = self.V(h)
@@ -102,6 +107,7 @@ class MultiHeadAttentionLayer(nn.Module):
         
         # Reshaping into [num_nodes, num_heads, feat_dim] to 
         # get projections for multi-head attention
+        #将求的东西，放到g里面
         g.ndata['Q_h'] = Q_h.view(-1, self.num_heads, self.out_dim)
         g.ndata['K_h'] = K_h.view(-1, self.num_heads, self.out_dim)
         g.ndata['V_h'] = V_h.view(-1, self.num_heads, self.out_dim)
@@ -160,6 +166,7 @@ class GraphTransformerLayer(nn.Module):
             self.batch_norm2_e = nn.BatchNorm1d(out_dim)
         
     def forward(self, g, h, e):
+        # 参照论文，h，e  分别是线性层映射后特征
         h_in1 = h # for first residual connection
         e_in1 = e # for first residual connection
         
